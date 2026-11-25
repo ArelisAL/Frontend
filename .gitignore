@@ -1,0 +1,22 @@
+node_modules/
+dist/
+build/
+.vite/
+.env
+.env.local
+*.log
+.DS_Store
+coverage/
+
+# Artefactos de compilacion de TypeScript (tsc -b emite junto a los .ts de configuracion).
+# Los archivos fuente reales son vite.config.ts, vitest.config.ts y vitest.setup.ts.
+*.tsbuildinfo
+vite.config.d.ts
+vite.config.js
+vitest.config.d.ts
+vitest.config.js
+vitest.setup.d.ts
+vitest.setup.js
+
+.vercel
+.env*

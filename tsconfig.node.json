@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "composite": true,
+    "skipLibCheck": true,
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "outDir": "./build/node",
+    "tsBuildInfoFile": "./build/node/tsconfig.tsbuildinfo"
+  },
+  "include": ["vite.config.ts", "vitest.config.ts", "vitest.setup.ts", "vite-env.d.ts"]
+}
