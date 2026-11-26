@@ -4,6 +4,8 @@ import CambiarContrasenaPage from "./pages/CambiarContrasenaPage";
 import DashboardPage from "./pages/DashboardPage";
 import ClientesPage from "./pages/ClientesPage";
 import PedidosPage from "./pages/PedidosPage";
+import EntregasPage from "./pages/EntregasPage";
+import NavegacionLateral from "./components/NavegacionLateral";
 import LoginPage from "./pages/LoginPage";
 import { cerrarSesion, obtenerUsuarioActual, type Usuario } from "./api/auth";
 import { obtenerTokenRefresh, refrescarToken, sesionActiva } from "./api/http";
@@ -97,132 +99,129 @@ export default function App() {
   const requiereCambio = Boolean(usuario?.debe_cambiar_contraseña);
   const rutaInicio = requiereCambio ? "/cambiar-contraseña" : "/";
 
+  const conBarraLateral = autenticado && !requiereCambio && usuario !== null;
+
   return (
     <div
-      className="fc-front-shell d-flex flex-column"
+      className={`fc-front-shell${conBarraLateral ? " fc-front-shell--lateral" : " d-flex flex-column"}`}
       style={{ minHeight: "100vh" }}
     >
-      <header className="container-fluid fc-front-navbar px-3 px-lg-5 py-3 d-flex flex-wrap align-items-center gap-3">
-        <Link
-          to={autenticado ? rutaInicio : "/login"}
-          className="fc-front-brand me-auto"
-        >
-          <img
-            src={logoFranCosturas}
-            alt="Fran-Costuras — Diseña, Cose, Crea"
-          />
-        </Link>
-        {autenticado && !requiereCambio && (
-          <nav
-            className="fc-front-nav d-flex flex-wrap align-items-center gap-2"
-            aria-label="Navegación principal"
+      {conBarraLateral ? (
+        <NavegacionLateral
+          usuario={usuario}
+          onCerrarSesion={() => {
+            void cerrarSesion().finally(() => setUsuario(null));
+          }}
+        />
+      ) : (
+        <header className="container-fluid fc-front-navbar px-3 px-lg-5 py-3 d-flex flex-wrap align-items-center gap-3">
+          <Link
+            to={autenticado ? rutaInicio : "/login"}
+            className="fc-front-brand me-auto"
           >
-            <Link className="fc-front-nav__link" to="/">
-              Inicio
-            </Link>
-            {(usuario?.rol === "administradora" ||
-              usuario?.rol === "recepcionista") && (
-              <Link className="fc-front-nav__link" to="/clientes">
-                Clientes y medidas
-              </Link>
-            )}
-            <Link className="fc-front-nav__link" to="/pedidos">
-              Pedidos
-            </Link>
-            <span className="fc-front-user">
-              {usuario?.nombre}
-              <small>{usuario?.rol}</small>
-            </span>
-            <button
-              className="btn btn-outline-primary"
-              onClick={() => {
-                void cerrarSesion().finally(() => setUsuario(null));
-              }}
-            >
-              Cerrar sesión
-            </button>
-          </nav>
-        )}
-      </header>
-      <Routes>
-        <Route
-          path="/login"
-          element={
-            autenticado ? (
-              <Navigate to={rutaInicio} replace />
-            ) : (
-              <LoginPage onAutenticado={setUsuario} />
-            )
-          }
-        />
-        <Route
-          path="/cambiar-contraseña"
-          element={
-            !autenticado ? (
-              <Navigate to="/login" replace />
-            ) : !requiereCambio ? (
-              <Navigate to="/" replace />
-            ) : (
-              <CambiarContrasenaPage
-                onCambioCorrecto={() =>
-                  setUsuario((actual) =>
-                    actual
-                      ? { ...actual, debe_cambiar_contraseña: false }
-                      : actual,
-                  )
-                }
-              />
-            )
-          }
-        />
-        <Route
-          path="/"
-          element={
-            !autenticado ? (
-              <Navigate to="/login" replace />
-            ) : requiereCambio ? (
-              <Navigate to="/cambiar-contraseña" replace />
-            ) : (
-              <DashboardPage usuarioInicial={usuario} />
-            )
-          }
-        />
-        <Route
-          path="/clientes"
-          element={
-            !autenticado ? (
-              <Navigate to="/login" replace />
-            ) : requiereCambio ? (
-              <Navigate to="/cambiar-contraseña" replace />
-            ) : usuario?.rol === "administradora" ||
-              usuario?.rol === "recepcionista" ? (
-              <ClientesPage />
-            ) : (
-              <Navigate to="/" replace />
-            )
-          }
-        />
-        <Route
-          path="/pedidos"
-          element={
-            !autenticado ? (
-              <Navigate to="/login" replace />
-            ) : requiereCambio ? (
-              <Navigate to="/cambiar-contraseña" replace />
-            ) : usuario ? (
-              <PedidosPage usuario={usuario} />
-            ) : (
-              <Navigate to="/login" replace />
-            )
-          }
-        />
-        <Route
-          path="*"
-          element={
-            <Navigate to={autenticado ? rutaInicio : "/login"} replace />
-          }
-        />
-      </Routes>
+            <img
+              src={logoFranCosturas}
+              alt="Fran-Costuras — Diseña, Cose, Crea"
+            />
+          </Link>
+        </header>
+      )}
+      <div className="fc-front-content">
+        <Routes>
+          <Route
+            path="/login"
+            element={
+              autenticado ? (
+                <Navigate to={rutaInicio} replace />
+              ) : (
+                <LoginPage onAutenticado={setUsuario} />
+              )
+            }
+          />
+          <Route
+            path="/cambiar-contraseña"
+            element={
+              !autenticado ? (
+                <Navigate to="/login" replace />
+              ) : !requiereCambio ? (
+                <Navigate to="/" replace />
+              ) : (
+                <CambiarContrasenaPage
+                  onCambioCorrecto={() =>
+                    setUsuario((actual) =>
+                      actual
+                        ? { ...actual, debe_cambiar_contraseña: false }
+                        : actual,
+                    )
+                  }
+                />
+              )
+            }
+          />
+          <Route
+            path="/"
+            element={
+              !autenticado ? (
+                <Navigate to="/login" replace />
+              ) : requiereCambio ? (
+                <Navigate to="/cambiar-contraseña" replace />
+              ) : (
+                <DashboardPage usuarioInicial={usuario} />
+              )
+            }
+          />
+          <Route
+            path="/clientes"
+            element={
+              !autenticado ? (
+                <Navigate to="/login" replace />
+              ) : requiereCambio ? (
+                <Navigate to="/cambiar-contraseña" replace />
+              ) : usuario?.rol === "administradora" ||
+                usuario?.rol === "recepcionista" ? (
+                <ClientesPage />
+              ) : (
+                <Navigate to="/" replace />
+              )
+            }
+          />
+          <Route
+            path="/pedidos"
+            element={
+              !autenticado ? (
+                <Navigate to="/login" replace />
+              ) : requiereCambio ? (
+                <Navigate to="/cambiar-contraseña" replace />
+              ) : usuario ? (
+                <PedidosPage usuario={usuario} />
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            }
+          />
+          <Route
+            path="/entregas"
+            element={
+              !autenticado ? (
+                <Navigate to="/login" replace />
+              ) : requiereCambio ? (
+                <Navigate to="/cambiar-contraseña" replace />
+              ) : usuario?.rol === "administradora" ||
+                usuario?.rol === "recepcionista" ? (
+                <EntregasPage />
+              ) : (
+                <Navigate to="/" replace />
+              )
+            }
+          />
+          <Route
+            path="*"
+            element={
+              <Navigate to={autenticado ? rutaInicio : "/login"} replace />
+            }
+          />
+        </Routes>
+      </div>
     </div>
   );
 }
