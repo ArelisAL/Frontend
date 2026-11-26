@@ -5,6 +5,11 @@ import DashboardPage from "./DashboardPage";
 import { obtenerUsuarioActual, type Usuario } from "../api/auth";
 
 vi.mock("../api/auth", () => ({ obtenerUsuarioActual: vi.fn() }));
+vi.mock("../api/pedidos", () => ({
+  listarPedidos: vi
+    .fn()
+    .mockResolvedValue({ count: 0, next: null, previous: null, results: [] }),
+}));
 
 const apiYo = vi.mocked(obtenerUsuarioActual);
 
