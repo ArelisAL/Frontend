@@ -2,6 +2,10 @@ import { useEffect, useState } from "react";
 import { obtenerUsuarioActual, type Usuario } from "../api/auth";
 import { extraerMensajeError } from "../api/errores";
 import { Link } from "react-router-dom";
+import Aviso from "../components/Aviso";
+import EncabezadoPagina from "../components/EncabezadoPagina";
+import IconoFC from "../components/IconoFC";
+import ResumenRecepcion from "../components/ResumenRecepcion";
 
 /**
  * Dashboard del cliente web (Frontend). Pantalla de bienvenida con datos del usuario.
@@ -62,68 +66,109 @@ export default function DashboardPage({
     );
   }
 
+  const atiendeRecepcion =
+    usuario?.rol === "administradora" || usuario?.rol === "recepcionista";
+
   return (
-    <main className="container py-4 fc-front-home">
-      <section className="fc-front-welcome" aria-labelledby="welcome-title">
-        <div>
-          <span className="fc-front-eyebrow">TU TALLER, MÁS ORGANIZADO</span>
-          <h1 id="welcome-title">
-            Bienvenido{usuario?.nombre ? `, ${usuario.nombre}` : ""}
-          </h1>
-          <p>
+    <main className="fc-page fc-front-home">
+      <EncabezadoPagina
+        id="welcome-title"
+        etiqueta="TU TALLER, MÁS ORGANIZADO"
+        titulo={`Bienvenido${usuario?.nombre ? `, ${usuario.nombre}` : ""}`}
+        descripcion={
+          <>
             Pedidos, medidas y trabajo bien hecho, reunidos en un solo lugar.
-          </p>
-          {usuario && (
-            <span className="fc-front-session">Sesión: {usuario.email}</span>
-          )}
+            {usuario && (
+              <span className="fc-front-session">Sesión: {usuario.email}</span>
+            )}
+          </>
+        }
+        acciones={
+          atiendeRecepcion ? (
+            <>
+              <Link className="btn btn-outline-primary" to="/clientes">
+                Clientes y medidas
+              </Link>
+              <Link className="btn btn-primary" to="/pedidos#registrar-pedido">
+                Nuevo pedido
+              </Link>
+            </>
+          ) : undefined
+        }
+      />
+
+      <div className="fc-inicio">
+        <div className="fc-inicio__principal">
+          {atiendeRecepcion && <ResumenRecepcion />}
+          <Aviso icono="aguja">
+            Los detalles de cada pedido se mantienen actualizados para que el
+            equipo trabaje con claridad.
+          </Aviso>
         </div>
-        <span className="fc-front-welcome__art" aria-hidden="true">
-          ✂︎
-        </span>
-      </section>
 
-      <section className="fc-front-actions" aria-label="Accesos principales">
-        {(usuario?.rol === "administradora" ||
-          usuario?.rol === "recepcionista") && (
-          <Link className="fc-front-action" to="/clientes">
-            <span className="fc-front-action__icon">◎</span>
-            <span>
-              <strong>Clientes y medidas</strong>
-              <small>Busca fichas y registra medidas del catálogo.</small>
-            </span>
-            <span className="fc-front-action__arrow" aria-hidden="true">
-              ↗
-            </span>
-          </Link>
-        )}
-        {usuario && (
-          <Link className="fc-front-action" to="/pedidos">
-            <span className="fc-front-action__icon fc-front-action__icon--pink">
-              ✂︎
-            </span>
-            <span>
-              <strong>
-                {usuario.rol === "costurera" ? "Mis pedidos" : "Pedidos"}
-              </strong>
-              <small>
-                {usuario.rol === "costurera"
-                  ? "Consulta tus asignaciones, fechas y detalles."
-                  : "Registra pedidos y consulta su seguimiento."}
-              </small>
-            </span>
-            <span className="fc-front-action__arrow" aria-hidden="true">
-              ↗
-            </span>
-          </Link>
-        )}
-      </section>
-
-      <div className="fc-front-note">
-        <span aria-hidden="true">✧</span>
-        <p>
-          Los detalles de cada pedido se mantienen actualizados para que el
-          equipo trabaje con claridad.
-        </p>
+        <section
+          className="fc-card fc-accesos"
+          aria-label="Accesos principales"
+        >
+          <div className="fc-card__titulo">
+            <IconoFC nombre="resumen" size={20} />
+            <h2>Accesos rápidos</h2>
+          </div>
+          {atiendeRecepcion && (
+            <Link className="fc-acceso" to="/clientes">
+              <span className="fc-acceso__icono">
+                <IconoFC nombre="equipo" size={20} />
+              </span>
+              <span>
+                <strong>Clientes y medidas</strong>
+                <small>Busca fichas y registra medidas del catálogo.</small>
+              </span>
+              <IconoFC nombre="flecha" size={16} />
+            </Link>
+          )}
+          {usuario && (
+            <Link className="fc-acceso" to="/pedidos">
+              <span className="fc-acceso__icono">
+                <IconoFC nombre="tijeras" size={20} />
+              </span>
+              <span>
+                <strong>
+                  {usuario.rol === "costurera" ? "Mis pedidos" : "Pedidos"}
+                </strong>
+                <small>
+                  {usuario.rol === "costurera"
+                    ? "Consulta tus asignaciones, fechas y detalles."
+                    : "Registra pedidos y consulta su seguimiento."}
+                </small>
+              </span>
+              <IconoFC nombre="flecha" size={16} />
+            </Link>
+          )}
+          {atiendeRecepcion && (
+            <>
+              <Link className="fc-acceso" to="/entregas">
+                <span className="fc-acceso__icono">
+                  <IconoFC nombre="calendario" size={20} />
+                </span>
+                <span>
+                  <strong>Entregas</strong>
+                  <small>Pedidos terminados listos para retirar.</small>
+                </span>
+                <IconoFC nombre="flecha" size={16} />
+              </Link>
+              <Link className="fc-acceso" to="/pedidos#cobros">
+                <span className="fc-acceso__icono">
+                  <IconoFC nombre="pagos" size={20} />
+                </span>
+                <span>
+                  <strong>Cobros y abonos</strong>
+                  <small>Buscar pedido y saldo.</small>
+                </span>
+                <IconoFC nombre="flecha" size={16} />
+              </Link>
+            </>
+          )}
+        </section>
       </div>
     </main>
   );
