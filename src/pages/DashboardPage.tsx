@@ -6,6 +6,7 @@ import Aviso from "../components/Aviso";
 import EncabezadoPagina from "../components/EncabezadoPagina";
 import IconoFC from "../components/IconoFC";
 import ResumenRecepcion from "../components/ResumenRecepcion";
+import ResumenTaller from "../components/ResumenTaller";
 
 /**
  * Dashboard del cliente web (Frontend). Pantalla de bienvenida con datos del usuario.
@@ -68,16 +69,24 @@ export default function DashboardPage({
 
   const atiendeRecepcion =
     usuario?.rol === "administradora" || usuario?.rol === "recepcionista";
+  const esCosturera = usuario?.rol === "costurera";
 
   return (
     <main className="fc-page fc-front-home">
       <EncabezadoPagina
         id="welcome-title"
-        etiqueta="TU TALLER, MÁS ORGANIZADO"
+        etiqueta={esCosturera ? "INICIO" : "TU TALLER, MÁS ORGANIZADO"}
         titulo={`Bienvenido${usuario?.nombre ? `, ${usuario.nombre}` : ""}`}
         descripcion={
           <>
-            Pedidos, medidas y trabajo bien hecho, reunidos en un solo lugar.
+            {esCosturera
+              ? `${new Date().toLocaleDateString("es-EC", {
+                  weekday: "long",
+                  day: "numeric",
+                  month: "long",
+                  year: "numeric",
+                })} · Esto es lo que tienes asignado en el taller.`
+              : "Pedidos, medidas y trabajo bien hecho, reunidos en un solo lugar."}
             {usuario && (
               <span className="fc-front-session">Sesión: {usuario.email}</span>
             )}
@@ -93,6 +102,10 @@ export default function DashboardPage({
                 Nuevo pedido
               </Link>
             </>
+          ) : esCosturera ? (
+            <Link className="btn btn-primary" to="/pedidos">
+              Ver mis pedidos
+            </Link>
           ) : undefined
         }
       />
@@ -100,10 +113,14 @@ export default function DashboardPage({
       <div className="fc-inicio">
         <div className="fc-inicio__principal">
           {atiendeRecepcion && <ResumenRecepcion />}
-          <Aviso icono="aguja">
-            Los detalles de cada pedido se mantienen actualizados para que el
-            equipo trabaje con claridad.
-          </Aviso>
+          {esCosturera ? (
+            <ResumenTaller />
+          ) : (
+            <Aviso icono="aguja">
+              Los detalles de cada pedido se mantienen actualizados para que el
+              equipo trabaje con claridad.
+            </Aviso>
+          )}
         </div>
 
         <section
@@ -140,6 +157,18 @@ export default function DashboardPage({
                     ? "Consulta tus asignaciones, fechas y detalles."
                     : "Registra pedidos y consulta su seguimiento."}
                 </small>
+              </span>
+              <IconoFC nombre="flecha" size={16} />
+            </Link>
+          )}
+          {esCosturera && (
+            <Link className="fc-acceso" to="/pedidos">
+              <span className="fc-acceso__icono">
+                <IconoFC nombre="aguja" size={20} />
+              </span>
+              <span>
+                <strong>Registrar toma de medidas</strong>
+                <small>Desde el detalle de un pedido asignado</small>
               </span>
               <IconoFC nombre="flecha" size={16} />
             </Link>

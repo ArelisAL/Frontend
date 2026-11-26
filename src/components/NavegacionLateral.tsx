@@ -58,7 +58,8 @@ export default function NavegacionLateral({
         ]
       : []),
     {
-      texto: "Pedidos",
+      // «Navegación lateral · Taller» (25:1734) nombra la entrada «Mis pedidos».
+      texto: usuario.rol === "costurera" ? "Mis pedidos" : "Pedidos",
       destino: "/pedidos",
       icono: "tijeras",
       activo: (ruta, h) =>

@@ -21,6 +21,8 @@ import Aviso from "../components/Aviso";
 import EncabezadoPagina from "../components/EncabezadoPagina";
 import IconoFC from "../components/IconoFC";
 import InsigniaEstado from "../components/InsigniaEstado";
+import DialogoAvanceEstado from "../components/DialogoAvanceEstado";
+import { ETIQUETA_SIGUIENTE_ESTADO } from "../components/estadosPedido";
 
 export default function PedidosPage({ usuario }: { usuario: Usuario }) {
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
@@ -57,6 +59,12 @@ export default function PedidosPage({ usuario }: { usuario: Usuario }) {
   const [cargando, setCargando] = useState(true);
   const puedeRegistrar =
     usuario.rol === "administradora" || usuario.rol === "recepcionista";
+  // Solo presentación del diseño «Frontend · Costurera»: diálogo de
+  // confirmación y vista de toma de medidas dentro del detalle.
+  const esCosturera = usuario.rol === "costurera";
+  const [confirmando, setConfirmando] = useState(false);
+  const [avanzando, setAvanzando] = useState(false);
+  const [tomandoMedidas, setTomandoMedidas] = useState(false);
 
   async function cargar(
     texto = busqueda,
@@ -154,6 +162,8 @@ export default function PedidosPage({ usuario }: { usuario: Usuario }) {
     const solicitud = ++solicitudDetalle.current;
     setError(null);
     setSeleccionado(null);
+    setTomandoMedidas(false);
+    setConfirmando(false);
     setHistorial([]);
     setNotaInterna("");
     setMontoPago("");
@@ -187,15 +197,25 @@ export default function PedidosPage({ usuario }: { usuario: Usuario }) {
   }
 
   async function avanzarEstado() {
+    if (!seleccionado) return;
+    if (esCosturera) {
+      setConfirmando(true);
+      return;
+    }
     if (
-      !seleccionado ||
       !window.confirm(
         `¿Confirmas avanzar ${seleccionado.codigo} al siguiente estado?`,
       )
     )
       return;
+    await ejecutarAvance();
+  }
+
+  async function ejecutarAvance() {
+    if (!seleccionado) return;
     setError(null);
     setMensaje(null);
+    setAvanzando(true);
     try {
       await cambiarEstadoPedido(seleccionado.codigo);
       const pedido = await obtenerPedido(seleccionado.codigo);
@@ -206,6 +226,9 @@ export default function PedidosPage({ usuario }: { usuario: Usuario }) {
       setMensaje(`Estado actualizado: ${pedido.estado}.`);
     } catch (e) {
       setError(extraerMensajeError(e));
+    } finally {
+      setAvanzando(false);
+      setConfirmando(false);
     }
   }
 
@@ -293,20 +316,10 @@ export default function PedidosPage({ usuario }: { usuario: Usuario }) {
       : []),
   ];
 
-  return (
-    <main className="fc-page">
-      <EncabezadoPagina
-        etiqueta="PEDIDOS"
-        titulo="Pedidos"
-        descripcion="Ordenados por fecha de entrega. Los pedidos entregados salen del tablero; búscalos por código o por cliente."
-        acciones={
-          puedeRegistrar ? (
-            <a className="btn btn-primary" href="#registrar-pedido">
-              Nuevo pedido
-            </a>
-          ) : undefined
-        }
-      />
+  // En el diseño de la costurera el detalle ocupa toda la pantalla.
+  const vistaDetalleTaller = esCosturera && seleccionado !== null;
+  const avisos = (
+    <>
       {error && (
         <Aviso tono="error" role="alert">
           {error}
@@ -317,6 +330,36 @@ export default function PedidosPage({ usuario }: { usuario: Usuario }) {
           {mensaje}
         </Aviso>
       )}
+    </>
+  );
+  const siguienteEstado = seleccionado
+    ? ETIQUETA_SIGUIENTE_ESTADO[seleccionado.estado]
+    : undefined;
+
+  return (
+    <main className="fc-page">
+      {!vistaDetalleTaller &&
+        (esCosturera ? (
+          <EncabezadoPagina
+            etiqueta="MIS PEDIDOS"
+            titulo="Mis pedidos asignados"
+            descripcion="Solo ves los pedidos que la administradora te asignó, ordenados por fecha de entrega. Los entregados se consultan con el filtro «Entregado»."
+          />
+        ) : (
+          <EncabezadoPagina
+            etiqueta="PEDIDOS"
+            titulo="Pedidos"
+            descripcion="Ordenados por fecha de entrega. Los pedidos entregados salen del tablero; búscalos por código o por cliente."
+            acciones={
+              puedeRegistrar ? (
+                <a className="btn btn-primary" href="#registrar-pedido">
+                  Nuevo pedido
+                </a>
+              ) : undefined
+            }
+          />
+        ))}
+      {!vistaDetalleTaller && avisos}
       {puedeRegistrar && (
         <div className="fc-grid-2" id="registrar-pedido">
           <section
@@ -455,138 +498,154 @@ export default function PedidosPage({ usuario }: { usuario: Usuario }) {
           </div>
         </div>
       )}
-      <section className="fc-card" aria-labelledby="titulo-tablero">
-        <div className="fc-card__titulo">
-          <IconoFC nombre="tijeras" size={20} />
-          <h2 id="titulo-tablero">Tablero de pedidos activos</h2>
-          <span className="fc-card__meta">{totalPedidos} pedidos</span>
-        </div>
-        <div className="fc-filtros">
-          <form
-            className="fc-buscador"
-            onSubmit={(e) => {
-              e.preventDefault();
-              void cargar(busqueda).catch((x: unknown) =>
-                setError(extraerMensajeError(x)),
-              );
-            }}
-          >
-            <label className="visually-hidden" htmlFor="buscar-pedido">
-              Código o nombre del cliente
-            </label>
-            <span className="fc-campo-icono">
-              <IconoFC nombre="buscar" size={18} />
-              <input
-                id="buscar-pedido"
-                className="form-control"
-                placeholder="Código o nombre del cliente"
-                value={busqueda}
-                onChange={(e) => setBusqueda(e.target.value)}
-              />
-            </span>
-            <button className="btn btn-outline-primary">Buscar</button>
-          </form>
+      {!vistaDetalleTaller && (
+        <section
+          className={`fc-card${esCosturera ? " fc-card--plana" : ""}`}
+          aria-labelledby="titulo-tablero"
+        >
           <div
-            className="fc-chips"
-            role="group"
-            aria-label="Filtrar por estado"
+            className={`fc-card__titulo${esCosturera ? " visually-hidden" : ""}`}
           >
-            {filtrosEstado.map((filtro) => (
-              <button
-                type="button"
-                key={filtro.valor || "todos"}
-                className={`fc-chip${estadoFiltro === filtro.valor ? " is-active" : ""}`}
-                aria-pressed={estadoFiltro === filtro.valor}
-                onClick={() => {
-                  setEstadoFiltro(filtro.valor);
-                  void cargar(busqueda, 1, filtro.valor);
-                }}
-              >
-                {filtro.texto}
-              </button>
-            ))}
+            <IconoFC nombre="tijeras" size={20} />
+            <h2 id="titulo-tablero">Tablero de pedidos activos</h2>
+            <span className="fc-card__meta">{totalPedidos} pedidos</span>
           </div>
-        </div>
-        <div className="fc-tabla-card table-responsive">
-          <table className="table fc-tabla mb-0">
-            <thead>
-              <tr>
-                <th>Código</th>
-                <th>Cliente</th>
-                <th>Prenda</th>
-                <th>Entrega</th>
-                <th>Costurera</th>
-                <th>Estado</th>
-                <th>
-                  <span className="visually-hidden">Detalle</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {pedidos.map((item) => (
-                <tr
-                  key={item.id}
-                  className={
-                    seleccionado?.codigo === item.codigo ? "is-selected" : ""
-                  }
+          <div className="fc-filtros">
+            <form
+              className="fc-buscador"
+              onSubmit={(e) => {
+                e.preventDefault();
+                void cargar(busqueda).catch((x: unknown) =>
+                  setError(extraerMensajeError(x)),
+                );
+              }}
+            >
+              <label className="visually-hidden" htmlFor="buscar-pedido">
+                Código o nombre del cliente
+              </label>
+              <span className="fc-campo-icono">
+                <IconoFC nombre="buscar" size={18} />
+                <input
+                  id="buscar-pedido"
+                  className="form-control"
+                  placeholder="Código o nombre del cliente"
+                  value={busqueda}
+                  onChange={(e) => setBusqueda(e.target.value)}
+                />
+              </span>
+              <button className="btn btn-outline-primary">Buscar</button>
+            </form>
+            <div
+              className="fc-chips"
+              role="group"
+              aria-label="Filtrar por estado"
+            >
+              {filtrosEstado.map((filtro) => (
+                <button
+                  type="button"
+                  key={filtro.valor || "todos"}
+                  className={`fc-chip${estadoFiltro === filtro.valor ? " is-active" : ""}`}
+                  aria-pressed={estadoFiltro === filtro.valor}
+                  onClick={() => {
+                    setEstadoFiltro(filtro.valor);
+                    void cargar(busqueda, 1, filtro.valor);
+                  }}
                 >
-                  <td className="fw-bold">{item.codigo}</td>
-                  <td>{item.cliente_nombre}</td>
-                  <td>{item.prenda_nombre}</td>
-                  <td>
-                    <span className="fc-fecha">
-                      <IconoFC nombre="calendario" size={16} />
-                      {item.fecha_entrega}
-                    </span>
-                  </td>
-                  <td className="fc-texto-suave">
-                    {item.costurera_nombre ?? "Sin asignar"}
-                  </td>
-                  <td>
-                    <InsigniaEstado estado={item.estado} />
-                  </td>
-                  <td>
-                    <button
-                      className="fc-chip-accion"
-                      onClick={() => void verDetalle(item.codigo)}
-                    >
-                      <IconoFC nombre="flecha" size={14} />
-                      Detalle
-                    </button>
-                  </td>
-                </tr>
+                  {filtro.texto}
+                </button>
               ))}
-            </tbody>
-          </table>
-        </div>
-        <div className="fc-paginacion">
-          <button
-            className="btn btn-outline-primary"
-            disabled={paginaPedidos <= 1}
-            onClick={() =>
-              void cargar(busqueda, paginaPedidos - 1, estadoFiltro)
-            }
-          >
-            Anterior
-          </button>
-          <span>
-            Página {paginaPedidos} de{" "}
-            {Math.max(1, Math.ceil(totalPedidos / 20))}
-          </span>
-          <button
-            className="btn btn-outline-primary"
-            disabled={paginaPedidos >= Math.ceil(totalPedidos / 20)}
-            onClick={() =>
-              void cargar(busqueda, paginaPedidos + 1, estadoFiltro)
-            }
-          >
-            Siguiente
-          </button>
-        </div>
-        {pedidos.length === 0 && (
-          <p className="fc-vacio">No hay pedidos activos para mostrar.</p>
-        )}
-      </section>
+            </div>
+          </div>
+          <div className="fc-tabla-card table-responsive">
+            <table className="table fc-tabla mb-0">
+              <thead>
+                <tr>
+                  <th>Código</th>
+                  <th>Cliente</th>
+                  <th>Prenda</th>
+                  <th>Entrega</th>
+                  {!esCosturera && <th>Costurera</th>}
+                  <th>Estado</th>
+                  <th>
+                    <span className="visually-hidden">Detalle</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {pedidos.map((item) => (
+                  <tr
+                    key={item.id}
+                    className={
+                      seleccionado?.codigo === item.codigo ? "is-selected" : ""
+                    }
+                  >
+                    <td className="fw-bold">{item.codigo}</td>
+                    <td>{item.cliente_nombre}</td>
+                    <td>{item.prenda_nombre}</td>
+                    <td>
+                      <span className="fc-fecha">
+                        <IconoFC nombre="calendario" size={16} />
+                        {item.fecha_entrega}
+                      </span>
+                    </td>
+                    {!esCosturera && (
+                      <td className="fc-texto-suave">
+                        {item.costurera_nombre ?? "Sin asignar"}
+                      </td>
+                    )}
+                    <td>
+                      <InsigniaEstado estado={item.estado} />
+                    </td>
+                    <td>
+                      <button
+                        className="fc-chip-accion"
+                        onClick={() => void verDetalle(item.codigo)}
+                      >
+                        <IconoFC nombre="flecha" size={14} />
+                        Detalle
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="fc-paginacion">
+            <button
+              className="btn btn-outline-primary"
+              disabled={paginaPedidos <= 1}
+              onClick={() =>
+                void cargar(busqueda, paginaPedidos - 1, estadoFiltro)
+              }
+            >
+              Anterior
+            </button>
+            <span>
+              Página {paginaPedidos} de{" "}
+              {Math.max(1, Math.ceil(totalPedidos / 20))}
+            </span>
+            <button
+              className="btn btn-outline-primary"
+              disabled={paginaPedidos >= Math.ceil(totalPedidos / 20)}
+              onClick={() =>
+                void cargar(busqueda, paginaPedidos + 1, estadoFiltro)
+              }
+            >
+              Siguiente
+            </button>
+          </div>
+          {pedidos.length === 0 && (
+            <p className="fc-vacio">No hay pedidos activos para mostrar.</p>
+          )}
+        </section>
+      )}
+      {esCosturera && !vistaDetalleTaller && (
+        <Aviso>
+          Solo aparecen tus pedidos. Si abres el enlace de un pedido de otra
+          costurera, la API responde «Sin permiso» (403). Para cambiar una fecha
+          de entrega, avisa a la administradora.
+        </Aviso>
+      )}
       {seleccionado && (
         <section
           className="fc-detalle"
@@ -595,259 +654,347 @@ export default function PedidosPage({ usuario }: { usuario: Usuario }) {
         >
           <div className="fc-detalle__cabecera">
             <div>
-              <p className="fc-eyebrow">PEDIDOS · {seleccionado.codigo}</p>
+              {esCosturera ? (
+                <p className="fc-eyebrow">
+                  MIS PEDIDOS › {seleccionado.codigo}
+                  {tomandoMedidas && " › MEDIDAS"}
+                </p>
+              ) : (
+                <p className="fc-eyebrow">PEDIDOS · {seleccionado.codigo}</p>
+              )}
               <h2 id="titulo-detalle">
-                {seleccionado.codigo} · {seleccionado.prenda_nombre}
+                {tomandoMedidas
+                  ? "Registrar toma de medidas"
+                  : `${seleccionado.codigo} · ${seleccionado.prenda_nombre}`}
               </h2>
+              {esCosturera && (
+                <p className="fc-detalle__sub">
+                  {tomandoMedidas
+                    ? `${seleccionado.codigo} · ${seleccionado.prenda_nombre} · ${seleccionado.cliente_nombre}`
+                    : `${seleccionado.cliente_nombre} · entrega prevista el ${seleccionado.fecha_entrega}`}
+                </p>
+              )}
             </div>
             <InsigniaEstado estado={seleccionado.estado} />
             {(usuario.rol === "administradora" ||
               usuario.rol === "costurera") &&
-              seleccionado.estado !== "ENTREGADO" && (
+              seleccionado.estado !== "ENTREGADO" &&
+              !tomandoMedidas && (
                 <button
                   className="btn btn-primary"
                   onClick={() => void avanzarEstado()}
                 >
-                  Confirmar siguiente estado
+                  {esCosturera && siguienteEstado
+                    ? `Pasar a «${siguienteEstado}»`
+                    : "Confirmar siguiente estado"}
                 </button>
               )}
-            <button
-              className="btn btn-outline-primary"
-              onClick={() => setSeleccionado(null)}
-            >
-              Cerrar
-            </button>
+            {tomandoMedidas ? (
+              <button
+                className="btn btn-outline-primary"
+                onClick={() => setTomandoMedidas(false)}
+              >
+                Volver al pedido
+              </button>
+            ) : (
+              <button
+                className="btn btn-outline-primary"
+                onClick={() => setSeleccionado(null)}
+              >
+                Cerrar
+              </button>
+            )}
           </div>
-          <div className="fc-grid-2">
-            <div className="fc-columna">
-              <section className="fc-card" aria-label="Datos del pedido">
-                <div className="fc-card__titulo">
-                  <IconoFC nombre="prenda" size={20} />
-                  <h3>Datos del pedido</h3>
-                </div>
-                <dl className="fc-datos">
-                  <div>
-                    <dt>Cliente</dt>
-                    <dd>{seleccionado.cliente_nombre}</dd>
-                  </div>
-                  <div>
-                    <dt>Costurera</dt>
-                    <dd>{seleccionado.costurera_nombre ?? "Sin asignar"}</dd>
-                  </div>
-                  <div>
-                    <dt>Entrega</dt>
-                    <dd>{seleccionado.fecha_entrega}</dd>
-                  </div>
-                  <div>
-                    <dt>Estado</dt>
-                    <dd>{seleccionado.estado}</dd>
-                  </div>
-                </dl>
-                {seleccionado.descripcion && (
-                  <dl className="fc-datos">
-                    <div className="fc-datos__ancho">
-                      <dt>Descripción</dt>
-                      <dd>{seleccionado.descripcion}</dd>
-                    </div>
-                  </dl>
-                )}
-                <h4 className="fc-subtitulo">Últimas medidas registradas</h4>
-                {seleccionado.medidas_ultima_toma ? (
-                  <>
-                    <p className="fc-ayuda">
-                      {seleccionado.medidas_ultima_toma.categoria} ·{" "}
-                      {new Date(
-                        seleccionado.medidas_ultima_toma.fecha,
-                      ).toLocaleDateString("es-EC")}
-                    </p>
-                    <ul className="fc-pildoras">
-                      {Object.entries(
-                        seleccionado.medidas_ultima_toma.valores_cm,
-                      ).map(([codigo, valor]) => (
-                        <li key={codigo}>
-                          {codigo}: {valor} cm
-                        </li>
-                      ))}
-                    </ul>
-                  </>
-                ) : (
-                  <p>No hay medidas registradas para esta prenda.</p>
-                )}
-              </section>
-              <GestionConsumosPedido
-                pedido={seleccionado}
-                puedeRegistrar={puedeRegistrar}
-              />
-              <section className="fc-card" aria-label="Notas internas">
-                <form onSubmit={(e) => void guardarNota(e)}>
+          {vistaDetalleTaller && avisos}
+          {tomandoMedidas ? (
+            <TomaMedidasPedido
+              pedido={seleccionado}
+              onVolver={() => setTomandoMedidas(false)}
+            />
+          ) : (
+            <div className="fc-grid-2">
+              <div className="fc-columna">
+                <section className="fc-card" aria-label="Datos del pedido">
                   <div className="fc-card__titulo">
-                    <IconoFC nombre="editar" size={20} />
-                    <label className="h3 mb-0" htmlFor="nota-interna">
-                      Nota interna (visible para el personal del taller)
-                    </label>
+                    <IconoFC nombre="prenda" size={20} />
+                    <h3>Datos del pedido</h3>
                   </div>
-                  <textarea
-                    id="nota-interna"
-                    className="form-control mb-2"
-                    rows={3}
-                    value={notaInterna}
-                    onChange={(e) => setNotaInterna(e.target.value)}
-                  />
-                  <div className="fc-form__acciones">
-                    <button className="btn btn-outline-primary">
-                      Guardar nota
-                    </button>
-                  </div>
-                </form>
-              </section>
-              {usuario.rol === "costurera" && (
-                <TomaMedidasPedido pedido={seleccionado} />
-              )}
-            </div>
-            <div className="fc-columna">
-              <section className="fc-card" aria-label="Historial de estados">
-                <div className="fc-card__titulo">
-                  <IconoFC nombre="reloj" size={20} />
-                  <h3>Historial de estados</h3>
-                </div>
-                {historial.length === 0 ? (
-                  <p className="fc-ayuda">Sin cambios de estado todavía.</p>
-                ) : (
-                  <ol className="fc-linea-tiempo">
-                    {historial.map((cambio) => (
-                      <li key={cambio.id}>
-                        <strong>
-                          {cambio.estado_anterior.replace(/_/g, " ")} →{" "}
-                          {cambio.estado_nuevo.replace(/_/g, " ")}
-                        </strong>
-                        <small>
-                          {new Date(cambio.fecha_hora).toLocaleString("es-EC")}{" "}
-                          · {cambio.usuario_nombre}
-                        </small>
-                      </li>
-                    ))}
-                  </ol>
-                )}
-                <p className="fc-ayuda mb-0">
-                  Solo se avanza en orden: Pendiente → En proceso → Terminado →
-                  Entregado. Cada cambio pide confirmación.
-                </p>
-              </section>
-              {puedeRegistrar && (
-                <section className="fc-card" aria-label="Pagos y saldo">
-                  <div className="fc-card__titulo">
-                    <IconoFC nombre="pagos" size={20} />
-                    <h3>Pagos y saldo</h3>
-                  </div>
-                  <div className="fc-saldos">
-                    <div className="fc-saldo">
-                      <small>Total del pedido</small>
-                      <strong>${Number(seleccionado.total).toFixed(2)}</strong>
-                    </div>
-                    <div className="fc-saldo fc-saldo--pendiente">
-                      <small>Saldo pendiente</small>
-                      <strong>${Number(saldo).toFixed(2)}</strong>
-                    </div>
-                  </div>
-                  {seleccionado.estado === "TERMINADO" && Number(saldo) > 0 && (
-                    <Aviso tono="error">
-                      Este pedido tiene saldo pendiente de $
-                      {Number(saldo).toFixed(2)}. Registra el abono antes de
-                      entregarlo.
-                    </Aviso>
-                  )}
-                  {Number(seleccionado.total) > 0 && Number(saldo) > 0 ? (
-                    <form
-                      className="fc-form"
-                      onSubmit={(e) => void guardarPago(e)}
-                    >
+                  {esCosturera ? (
+                    <dl className="fc-datos">
                       <div>
-                        <label className="form-label" htmlFor="monto-pago">
-                          Nuevo abono
-                        </label>
-                        <input
-                          id="monto-pago"
-                          className="form-control"
-                          type="number"
-                          min="0.01"
-                          max={saldo}
-                          step="0.01"
-                          required
-                          value={montoPago}
-                          onChange={(e) => setMontoPago(e.target.value)}
-                        />
+                        <dt>Cliente</dt>
+                        <dd>{seleccionado.cliente_nombre}</dd>
                       </div>
-                      <button
-                        className="btn btn-primary w-100"
-                        disabled={guardandoPago}
-                      >
-                        {guardandoPago ? "Guardando…" : "Registrar abono"}
-                      </button>
-                    </form>
+                      <div>
+                        <dt>Prenda · categoría</dt>
+                        <dd>
+                          {seleccionado.prenda_nombre} ·{" "}
+                          {seleccionado.categoria_codigo}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>Entrega</dt>
+                        <dd>{seleccionado.fecha_entrega}</dd>
+                      </div>
+                    </dl>
                   ) : (
-                    <p className="fc-ayuda">
-                      {Number(seleccionado.total) <= 0
-                        ? "El total del pedido aún no está definido."
-                        : "El pedido no tiene saldo pendiente."}
-                    </p>
+                    <dl className="fc-datos">
+                      <div>
+                        <dt>Cliente</dt>
+                        <dd>{seleccionado.cliente_nombre}</dd>
+                      </div>
+                      <div>
+                        <dt>Costurera</dt>
+                        <dd>
+                          {seleccionado.costurera_nombre ?? "Sin asignar"}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>Entrega</dt>
+                        <dd>{seleccionado.fecha_entrega}</dd>
+                      </div>
+                      <div>
+                        <dt>Estado</dt>
+                        <dd>{seleccionado.estado}</dd>
+                      </div>
+                    </dl>
                   )}
-                  {pagos.length === 0 ? (
-                    <p className="fc-ayuda">No hay abonos registrados.</p>
-                  ) : (
+                  {seleccionado.descripcion && (
+                    <dl className="fc-datos">
+                      <div className="fc-datos__ancho">
+                        <dt>Descripción</dt>
+                        <dd>{seleccionado.descripcion}</dd>
+                      </div>
+                    </dl>
+                  )}
+                  <h4 className="fc-subtitulo">Últimas medidas registradas</h4>
+                  {seleccionado.medidas_ultima_toma ? (
                     <>
-                      <ul className="fc-abonos">
-                        {pagos.map((pago) => (
-                          <li key={pago.id}>
-                            <span>
-                              <strong
-                                className={pago.anulado ? "fc-anulado" : ""}
-                              >
-                                ${Number(pago.monto).toFixed(2)}
-                              </strong>
-                              <small>
-                                {new Date(pago.fecha).toLocaleString("es-EC")} ·{" "}
-                                {pago.registrado_por_nombre}
-                              </small>
-                            </span>
-                            {pago.anulado && (
-                              <span className="fc-badge fc-badge--anulado">
-                                Anulado
-                              </span>
-                            )}
+                      <p className="fc-ayuda">
+                        {seleccionado.medidas_ultima_toma.categoria} ·{" "}
+                        {new Date(
+                          seleccionado.medidas_ultima_toma.fecha,
+                        ).toLocaleDateString("es-EC")}
+                      </p>
+                      <ul className="fc-pildoras">
+                        {Object.entries(
+                          seleccionado.medidas_ultima_toma.valores_cm,
+                        ).map(([codigo, valor]) => (
+                          <li key={codigo}>
+                            {codigo}: {valor} cm
                           </li>
                         ))}
                       </ul>
-                      <div className="fc-paginacion">
-                        <button
-                          className="btn btn-outline-primary"
-                          disabled={paginaPagos <= 1}
-                          onClick={() =>
-                            void cambiarPaginaPagos(paginaPagos - 1)
-                          }
-                        >
-                          Anterior
-                        </button>
-                        <span>
-                          Página {paginaPagos} de{" "}
-                          {Math.max(1, Math.ceil(totalPagos / 20))}
-                        </span>
-                        <button
-                          className="btn btn-outline-primary"
-                          disabled={paginaPagos >= Math.ceil(totalPagos / 20)}
-                          onClick={() =>
-                            void cambiarPaginaPagos(paginaPagos + 1)
-                          }
-                        >
-                          Siguiente
-                        </button>
-                      </div>
                     </>
+                  ) : (
+                    <p>No hay medidas registradas para esta prenda.</p>
                   )}
                 </section>
-              )}
+                <GestionConsumosPedido
+                  pedido={seleccionado}
+                  puedeRegistrar={puedeRegistrar}
+                />
+                <section className="fc-card" aria-label="Notas internas">
+                  <form onSubmit={(e) => void guardarNota(e)}>
+                    <div className="fc-card__titulo">
+                      <IconoFC nombre="editar" size={20} />
+                      <label className="h3 mb-0" htmlFor="nota-interna">
+                        Nota interna (visible para el personal del taller)
+                      </label>
+                    </div>
+                    <textarea
+                      id="nota-interna"
+                      className="form-control mb-2"
+                      rows={3}
+                      value={notaInterna}
+                      onChange={(e) => setNotaInterna(e.target.value)}
+                    />
+                    <div className="fc-form__acciones">
+                      <button className="btn btn-outline-primary">
+                        Guardar nota
+                      </button>
+                    </div>
+                  </form>
+                </section>
+              </div>
+              <div className="fc-columna">
+                <section className="fc-card" aria-label="Historial de estados">
+                  <div className="fc-card__titulo">
+                    <IconoFC nombre="reloj" size={20} />
+                    <h3>Historial de estados</h3>
+                  </div>
+                  {historial.length === 0 ? (
+                    <p className="fc-ayuda">Sin cambios de estado todavía.</p>
+                  ) : (
+                    <ol className="fc-linea-tiempo">
+                      {historial.map((cambio) => (
+                        <li key={cambio.id}>
+                          <strong>
+                            {cambio.estado_anterior.replace(/_/g, " ")} →{" "}
+                            {cambio.estado_nuevo.replace(/_/g, " ")}
+                          </strong>
+                          <small>
+                            {new Date(cambio.fecha_hora).toLocaleString(
+                              "es-EC",
+                            )}{" "}
+                            · {cambio.usuario_nombre}
+                          </small>
+                        </li>
+                      ))}
+                    </ol>
+                  )}
+                  <p className="fc-ayuda mb-0">
+                    Solo se avanza en orden: Pendiente → En proceso → Terminado
+                    → Entregado. Cada cambio pide confirmación.
+                  </p>
+                </section>
+                {esCosturera && (
+                  <section className="fc-card" aria-label="Medidas del pedido">
+                    <div className="fc-card__titulo">
+                      <IconoFC nombre="aguja" size={20} />
+                      <h3>Medidas del pedido</h3>
+                    </div>
+                    <p className="fc-ayuda">
+                      ¿La clienta vino a una prueba? Registra una toma nueva en
+                      centímetros. No se sobrescribe la anterior: queda en el
+                      historial.
+                    </p>
+                    <button
+                      type="button"
+                      className="btn btn-outline-primary w-100"
+                      onClick={() => setTomandoMedidas(true)}
+                    >
+                      Registrar nueva toma
+                    </button>
+                  </section>
+                )}
+                {puedeRegistrar && (
+                  <section className="fc-card" aria-label="Pagos y saldo">
+                    <div className="fc-card__titulo">
+                      <IconoFC nombre="pagos" size={20} />
+                      <h3>Pagos y saldo</h3>
+                    </div>
+                    <div className="fc-saldos">
+                      <div className="fc-saldo">
+                        <small>Total del pedido</small>
+                        <strong>
+                          ${Number(seleccionado.total).toFixed(2)}
+                        </strong>
+                      </div>
+                      <div className="fc-saldo fc-saldo--pendiente">
+                        <small>Saldo pendiente</small>
+                        <strong>${Number(saldo).toFixed(2)}</strong>
+                      </div>
+                    </div>
+                    {seleccionado.estado === "TERMINADO" &&
+                      Number(saldo) > 0 && (
+                        <Aviso tono="error">
+                          Este pedido tiene saldo pendiente de $
+                          {Number(saldo).toFixed(2)}. Registra el abono antes de
+                          entregarlo.
+                        </Aviso>
+                      )}
+                    {Number(seleccionado.total) > 0 && Number(saldo) > 0 ? (
+                      <form
+                        className="fc-form"
+                        onSubmit={(e) => void guardarPago(e)}
+                      >
+                        <div>
+                          <label className="form-label" htmlFor="monto-pago">
+                            Nuevo abono
+                          </label>
+                          <input
+                            id="monto-pago"
+                            className="form-control"
+                            type="number"
+                            min="0.01"
+                            max={saldo}
+                            step="0.01"
+                            required
+                            value={montoPago}
+                            onChange={(e) => setMontoPago(e.target.value)}
+                          />
+                        </div>
+                        <button
+                          className="btn btn-primary w-100"
+                          disabled={guardandoPago}
+                        >
+                          {guardandoPago ? "Guardando…" : "Registrar abono"}
+                        </button>
+                      </form>
+                    ) : (
+                      <p className="fc-ayuda">
+                        {Number(seleccionado.total) <= 0
+                          ? "El total del pedido aún no está definido."
+                          : "El pedido no tiene saldo pendiente."}
+                      </p>
+                    )}
+                    {pagos.length === 0 ? (
+                      <p className="fc-ayuda">No hay abonos registrados.</p>
+                    ) : (
+                      <>
+                        <ul className="fc-abonos">
+                          {pagos.map((pago) => (
+                            <li key={pago.id}>
+                              <span>
+                                <strong
+                                  className={pago.anulado ? "fc-anulado" : ""}
+                                >
+                                  ${Number(pago.monto).toFixed(2)}
+                                </strong>
+                                <small>
+                                  {new Date(pago.fecha).toLocaleString("es-EC")}{" "}
+                                  · {pago.registrado_por_nombre}
+                                </small>
+                              </span>
+                              {pago.anulado && (
+                                <span className="fc-badge fc-badge--anulado">
+                                  Anulado
+                                </span>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                        <div className="fc-paginacion">
+                          <button
+                            className="btn btn-outline-primary"
+                            disabled={paginaPagos <= 1}
+                            onClick={() =>
+                              void cambiarPaginaPagos(paginaPagos - 1)
+                            }
+                          >
+                            Anterior
+                          </button>
+                          <span>
+                            Página {paginaPagos} de{" "}
+                            {Math.max(1, Math.ceil(totalPagos / 20))}
+                          </span>
+                          <button
+                            className="btn btn-outline-primary"
+                            disabled={paginaPagos >= Math.ceil(totalPagos / 20)}
+                            onClick={() =>
+                              void cambiarPaginaPagos(paginaPagos + 1)
+                            }
+                          >
+                            Siguiente
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </section>
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </section>
+      )}
+      {confirmando && seleccionado && (
+        <DialogoAvanceEstado
+          pedido={seleccionado}
+          enviando={avanzando}
+          onConfirmar={() => void ejecutarAvance()}
+          onCancelar={() => setConfirmando(false)}
+        />
       )}
       {puedeRegistrar && (
         <section

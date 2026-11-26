@@ -10,8 +10,18 @@ import {
 } from "../api/clientes";
 import { extraerMensajeError } from "../api/errores";
 import type { Pedido } from "../api/pedidos";
+import Aviso from "../components/Aviso";
+import IconoFC from "../components/IconoFC";
 
-export default function TomaMedidasPedido({ pedido }: { pedido: Pedido }) {
+/* Diseño Figma «04 · Detalle · Registrar toma de medidas» (Frontend ·
+ * Costurera): formulario a la izquierda e historial a la derecha. */
+export default function TomaMedidasPedido({
+  pedido,
+  onVolver,
+}: {
+  pedido: Pedido;
+  onVolver?: () => void;
+}) {
   const [campos, setCampos] = useState<(TipoMedida | PrendaMedida)[]>([]);
   const [historial, setHistorial] = useState<Medida[]>([]);
   const [paginaHistorial, setPaginaHistorial] = useState(1);
@@ -99,58 +109,75 @@ export default function TomaMedidasPedido({ pedido }: { pedido: Pedido }) {
   }
 
   return (
-    <section className="border rounded p-3 mt-4">
-      <h3 className="h5">Medidas del pedido · {pedido.prenda_nombre}</h3>
-      <p>Registra las medidas del cuerpo en centímetros.</p>
-      {error && (
-        <div className="alert alert-danger" role="alert">
-          {error}
+    <div className="fc-grid-2">
+      <section className="fc-card" aria-labelledby="titulo-toma-medidas">
+        <div className="fc-card__titulo">
+          <IconoFC nombre="editar" size={20} />
+          <h3 id="titulo-toma-medidas">
+            Medidas del pedido · {pedido.prenda_nombre}
+          </h3>
+          <span className="fc-card__meta">Todo en centímetros</span>
         </div>
-      )}
-      {mensaje && (
-        <div className="alert alert-success" role="status">
-          {mensaje}
-        </div>
-      )}
-      {cargando ? (
-        <p aria-live="polite">Cargando medidas…</p>
-      ) : (
-        <>
-          <form onSubmit={(e) => void guardar(e)} className="row g-3">
-            {campos.map((campo) => (
-              <div className="col-12 col-md-6" key={campo.codigo}>
-                <label
-                  className="form-label"
-                  htmlFor={`medida-${campo.codigo}`}
-                >
-                  {campo.nombre}
-                  {"opcional" in campo && campo.opcional
-                    ? " (opcional)"
-                    : ""}{" "}
-                  (cm)
-                </label>
-                <input
-                  id={`medida-${campo.codigo}`}
-                  type="number"
-                  min="0.1"
-                  step="0.1"
-                  inputMode="decimal"
-                  className="form-control"
-                  value={valores[campo.codigo] ?? ""}
-                  onChange={(e) =>
-                    setValores((actual) => ({
-                      ...actual,
-                      [campo.codigo]: e.target.value,
-                    }))
-                  }
-                  aria-describedby={`ayuda-${campo.codigo}`}
-                />
-                <div className="form-text" id={`ayuda-${campo.codigo}`}>
-                  {campo.como_se_toma}
+        <p className="mb-0">Registra las medidas del cuerpo en centímetros.</p>
+        {error && (
+          <Aviso tono="error" role="alert">
+            {error}
+          </Aviso>
+        )}
+        {mensaje && (
+          <Aviso tono="exito" icono="cheque" role="status">
+            {mensaje}
+          </Aviso>
+        )}
+        {cargando ? (
+          <p aria-live="polite">Cargando medidas…</p>
+        ) : (
+          <form onSubmit={(e) => void guardar(e)} className="fc-form">
+            <div className="fc-campos-medida">
+              {campos.map((campo) => (
+                <div key={campo.codigo}>
+                  <label
+                    className="form-label"
+                    htmlFor={`medida-${campo.codigo}`}
+                  >
+                    {campo.nombre}
+                    {"opcional" in campo && campo.opcional
+                      ? " (opcional)"
+                      : ""}{" "}
+                    (cm)
+                  </label>
+                  <input
+                    id={`medida-${campo.codigo}`}
+                    type="number"
+                    min="0.1"
+                    step="0.1"
+                    inputMode="decimal"
+                    className="form-control"
+                    value={valores[campo.codigo] ?? ""}
+                    onChange={(e) =>
+                      setValores((actual) => ({
+                        ...actual,
+                        [campo.codigo]: e.target.value,
+                      }))
+                    }
+                    aria-describedby={`ayuda-${campo.codigo}`}
+                  />
+                  <div className="form-text" id={`ayuda-${campo.codigo}`}>
+                    {campo.como_se_toma}
+                  </div>
                 </div>
-              </div>
-            ))}
-            <div className="col-12">
+              ))}
+            </div>
+            <div className="fc-form__acciones">
+              {onVolver && (
+                <button
+                  type="button"
+                  className="btn btn-outline-primary"
+                  onClick={onVolver}
+                >
+                  Cancelar
+                </button>
+              )}
               <button
                 className="btn btn-primary"
                 disabled={guardando || campos.length === 0}
@@ -159,30 +186,39 @@ export default function TomaMedidasPedido({ pedido }: { pedido: Pedido }) {
               </button>
             </div>
           </form>
-          <h4 className="h6 mt-4">Historial autorizado</h4>
-          {historial.length === 0 ? (
-            <p>No hay tomas registradas para los pedidos asignados.</p>
-          ) : (
-            <>
-              {historial.map((toma) => (
-                <article key={toma.id} className="border rounded p-3 mb-2">
-                  <strong>
-                    {toma.categoria} · {toma.prenda ?? "Bebé"}
-                  </strong>
-                  <div>{new Date(toma.fecha).toLocaleDateString("es-EC")}</div>
-                  <ul className="mb-0">
-                    {Object.entries(toma.valores_cm).map(([codigo, valor]) => (
-                      <li key={codigo}>
-                        {codigo}: {valor} cm
-                      </li>
-                    ))}
-                  </ul>
-                </article>
-              ))}
-              <div className="d-flex justify-content-between align-items-center">
+        )}
+      </section>
+      <section className="fc-card" aria-labelledby="titulo-historial-medidas">
+        <div className="fc-card__titulo">
+          <IconoFC nombre="aguja" size={20} />
+          <h3 id="titulo-historial-medidas">Historial autorizado</h3>
+        </div>
+        {!cargando && historial.length === 0 ? (
+          <p className="fc-ayuda">
+            No hay tomas registradas para los pedidos asignados.
+          </p>
+        ) : (
+          <>
+            {historial.map((toma) => (
+              <article key={toma.id} className="fc-toma-historial">
+                <p className="fc-subtitulo">
+                  {new Date(toma.fecha).toLocaleDateString("es-EC")} ·{" "}
+                  {toma.categoria} · {toma.prenda ?? "Bebé"}
+                </p>
+                <ul className="fc-pildoras">
+                  {Object.entries(toma.valores_cm).map(([codigo, valor]) => (
+                    <li key={codigo}>
+                      {codigo}: {valor} cm
+                    </li>
+                  ))}
+                </ul>
+              </article>
+            ))}
+            {
+              <div className="fc-paginacion">
                 <button
                   type="button"
-                  className="btn btn-outline-primary"
+                  className="btn btn-sm btn-outline-primary"
                   disabled={paginaHistorial <= 1}
                   onClick={() => setPaginaHistorial((actual) => actual - 1)}
                 >
@@ -194,17 +230,17 @@ export default function TomaMedidasPedido({ pedido }: { pedido: Pedido }) {
                 </span>
                 <button
                   type="button"
-                  className="btn btn-outline-primary"
+                  className="btn btn-sm btn-outline-primary"
                   disabled={paginaHistorial >= Math.ceil(totalHistorial / 20)}
                   onClick={() => setPaginaHistorial((actual) => actual + 1)}
                 >
                   Siguiente
                 </button>
               </div>
-            </>
-          )}
-        </>
-      )}
-    </section>
+            }
+          </>
+        )}
+      </section>
+    </div>
   );
 }
