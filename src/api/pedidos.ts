@@ -9,6 +9,7 @@ export interface Pedido {
   prenda: number;
   prenda_nombre: string;
   categoria_codigo: string;
+  categoria_nombre?: string;
   descripcion: string;
   fecha_entrega: string;
   estado: string;
@@ -16,6 +17,7 @@ export interface Pedido {
   costurera_nombre: string | null;
   nota_interna: string;
   total: string;
+  total_cerrado_en?: string | null;
   creado_en: string;
   entregado_en: string | null;
   medidas_ultima_toma: {
@@ -173,5 +175,69 @@ export async function listarHistorialPedido(
   const { data } = await api.get<Pagina<HistorialEstado>>(
     `/pedidos/${codigo}/historial/`,
   );
+  return data;
+}
+
+// --- Prendas del pedido y cierre del total (auditoría C1) -------------------
+
+export interface ServicioCotizable {
+  id: number;
+  codigo: string;
+  nombre: string;
+  categoria: string;
+  unidad: string;
+  tarifa_base: string;
+}
+
+export interface ServicioPedido {
+  id: number;
+  servicio: number;
+  servicio_nombre: string;
+  cantidad: number;
+  precio_unitario: string;
+  subtotal: string;
+  detalle: string;
+  creado_en: string;
+}
+
+export async function listarServiciosCotizables(): Promise<
+  Pagina<ServicioCotizable>
+> {
+  const { data } = await api.get<Pagina<ServicioCotizable>>(
+    "/servicios/cotizables/",
+  );
+  return data;
+}
+
+export async function listarServiciosPedido(
+  codigo: string,
+): Promise<ServicioPedido[]> {
+  const { data } = await api.get<ServicioPedido[]>(
+    `/pedidos/${codigo}/servicios/`,
+  );
+  return data;
+}
+
+export async function agregarServicioPedido(
+  codigo: string,
+  servicio: number,
+  cantidad: number,
+): Promise<ServicioPedido> {
+  const { data } = await api.post<ServicioPedido>(
+    `/pedidos/${codigo}/servicios/`,
+    { servicio, cantidad },
+  );
+  return data;
+}
+
+export async function quitarServicioPedido(
+  codigo: string,
+  lineaId: number,
+): Promise<void> {
+  await api.delete(`/pedidos/${codigo}/servicios/${lineaId}/`);
+}
+
+export async function cerrarTotalPedido(codigo: string): Promise<Pedido> {
+  const { data } = await api.post<Pedido>(`/pedidos/${codigo}/cerrar-total/`);
   return data;
 }

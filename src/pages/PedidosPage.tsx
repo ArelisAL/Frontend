@@ -16,6 +16,7 @@ import {
 import type { Usuario } from "../api/auth";
 import TomaMedidasPedido from "./TomaMedidasPedido";
 import GestionConsumosPedido from "./GestionConsumosPedido";
+import PrendasTotalPedido from "./PrendasTotalPedido";
 import { listarPagos, registrarPago, type Pago } from "../api/pagos";
 import Aviso from "../components/Aviso";
 import EncabezadoPagina from "../components/EncabezadoPagina";
@@ -271,6 +272,22 @@ export default function PedidosPage({ usuario }: { usuario: Usuario }) {
         setError(extraerMensajeError(e));
     } finally {
       if (solicitud === solicitudDetalle.current) setGuardandoPago(false);
+    }
+  }
+
+  async function alCerrarTotal(pedido: Pedido) {
+    const solicitud = solicitudDetalle.current;
+    setSeleccionado(pedido);
+    try {
+      const pagina = await listarPagos(pedido.codigo);
+      if (solicitud !== solicitudDetalle.current) return;
+      setPagos(pagina.results);
+      setSaldo(pagina.saldo);
+      setTotalPagos(pagina.count);
+      setPaginaPagos(1);
+    } catch (e) {
+      if (solicitud === solicitudDetalle.current)
+        setError(extraerMensajeError(e));
     }
   }
 
@@ -679,6 +696,8 @@ export default function PedidosPage({ usuario }: { usuario: Usuario }) {
             {(usuario.rol === "administradora" ||
               usuario.rol === "costurera") &&
               seleccionado.estado !== "ENTREGADO" &&
+              // La entrega la registra recepción (decisión C2, 27/11/2026).
+              !(esCosturera && seleccionado.estado === "TERMINADO") &&
               !tomandoMedidas && (
                 <button
                   className="btn btn-primary"
@@ -729,7 +748,8 @@ export default function PedidosPage({ usuario }: { usuario: Usuario }) {
                         <dt>Prenda · categoría</dt>
                         <dd>
                           {seleccionado.prenda_nombre} ·{" "}
-                          {seleccionado.categoria_codigo}
+                          {seleccionado.categoria_nombre ??
+                            seleccionado.categoria_codigo}
                         </dd>
                       </div>
                       <div>
@@ -790,6 +810,13 @@ export default function PedidosPage({ usuario }: { usuario: Usuario }) {
                     <p>No hay medidas registradas para esta prenda.</p>
                   )}
                 </section>
+                {puedeRegistrar && (
+                  <PrendasTotalPedido
+                    pedido={seleccionado}
+                    puedeCerrar={usuario.rol === "recepcionista"}
+                    onTotalCerrado={(pedido) => void alCerrarTotal(pedido)}
+                  />
+                )}
                 <GestionConsumosPedido
                   pedido={seleccionado}
                   puedeRegistrar={puedeRegistrar}

@@ -2,18 +2,22 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { extraerMensajeError } from "../api/errores";
 import { listarPagos } from "../api/pagos";
-import { listarPedidos, type Pedido } from "../api/pedidos";
+import {
+  cambiarEstadoPedido,
+  listarPedidos,
+  type Pedido,
+} from "../api/pedidos";
 import Aviso from "../components/Aviso";
 import EncabezadoPagina from "../components/EncabezadoPagina";
 import IconoFC from "../components/IconoFC";
 import InsigniaEstado from "../components/InsigniaEstado";
 
 /**
- * Pantalla «07 · Entregas» del diseño Figma (propuesta). Es solo interfaz:
- * lista los pedidos en estado TERMINADO con el endpoint existente /pedidos/ y
- * consulta el saldo con /pedidos/{codigo}/pagos/. No cambia estados ni añade
- * reglas: el aviso de saldo pendiente es informativo y la decisión sigue en el
- * Backend.
+ * Pantalla «07 · Entregas» del diseño Figma. Lista los pedidos TERMINADO con
+ * /pedidos/, consulta el saldo con /pedidos/{codigo}/pagos/ y registra la
+ * entrega con /pedidos/{codigo}/estado/ (decisión C2: la recepcionista marca
+ * «Entregado»). El bloqueo por saldo lo decide el Backend (409 saldo_pendiente,
+ * decisión C3); aquí solo se deshabilita el botón para ayudar.
  */
 export default function EntregasPage() {
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
@@ -24,6 +28,8 @@ export default function EntregasPage() {
   const [error, setError] = useState<string | null>(null);
   const [seleccionado, setSeleccionado] = useState<Pedido | null>(null);
   const [saldo, setSaldo] = useState<string | null>(null);
+  const [entregando, setEntregando] = useState(false);
+  const [exito, setExito] = useState<string | null>(null);
   const solicitud = useRef(0);
 
   async function cargar(texto = busqueda, numero = 1) {
@@ -50,11 +56,32 @@ export default function EntregasPage() {
     const actual = ++solicitud.current;
     setSeleccionado(pedido);
     setSaldo(null);
+    setExito(null);
     try {
       const pagos = await listarPagos(pedido.codigo);
       if (actual === solicitud.current) setSaldo(pagos.saldo);
     } catch (e) {
       if (actual === solicitud.current) setError(extraerMensajeError(e));
+    }
+  }
+
+  async function confirmarEntrega() {
+    if (!seleccionado) return;
+    setEntregando(true);
+    setError(null);
+    try {
+      await cambiarEstadoPedido(seleccionado.codigo);
+      setExito(
+        `${seleccionado.codigo} se entregó y ya no aparece en el tablero de pedidos activos.`,
+      );
+      solicitud.current++;
+      setSeleccionado(null);
+      setSaldo(null);
+      await cargar(busqueda, 1);
+    } catch (e) {
+      setError(extraerMensajeError(e));
+    } finally {
+      setEntregando(false);
     }
   }
 
@@ -70,6 +97,11 @@ export default function EntregasPage() {
       {error && (
         <Aviso tono="error" role="alert">
           {error}
+        </Aviso>
+      )}
+      {exito && (
+        <Aviso tono="exito" icono="cheque">
+          {exito}
         </Aviso>
       )}
       <div className="fc-grid-2">
@@ -150,7 +182,7 @@ export default function EntregasPage() {
                             onClick={() => void revisar(pedido)}
                           >
                             <IconoFC nombre="cheque" size={14} />
-                            Revisar
+                            Entregar
                           </button>
                         </td>
                       </tr>
@@ -186,7 +218,7 @@ export default function EntregasPage() {
         >
           <div className="fc-card__titulo">
             <IconoFC nombre="cheque" size={20} />
-            <h2 id="titulo-revision">Revisar entrega</h2>
+            <h2 id="titulo-revision">Confirmar entrega</h2>
             {seleccionado && (
               <span className="fc-card__meta">{seleccionado.codigo}</span>
             )}
@@ -230,11 +262,40 @@ export default function EntregasPage() {
                 </Aviso>
               )}
               <Link className="btn btn-primary w-100" to="/pedidos#cobros">
-                Ir a cobros y abonos
+                {saldo !== null && Number(saldo) > 0
+                  ? `Registrar abono de $${Number(saldo).toFixed(2)}`
+                  : "Ir a cobros y abonos"}
               </Link>
+              <div className="fc-form__fila mt-3">
+                <button
+                  type="button"
+                  className="btn btn-outline-primary"
+                  onClick={() => {
+                    solicitud.current++;
+                    setSeleccionado(null);
+                    setSaldo(null);
+                  }}
+                  disabled={entregando}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-outline-primary"
+                  onClick={() => void confirmarEntrega()}
+                  disabled={
+                    entregando ||
+                    !seleccionado.total_cerrado_en ||
+                    saldo === null ||
+                    Number(saldo) > 0
+                  }
+                >
+                  {entregando ? "Confirmando…" : "Confirmar entrega"}
+                </button>
+              </div>
               <p className="fc-ayuda mt-3 mb-0">
-                El cambio a «Entregado» se confirma desde el detalle del pedido;
-                al confirmarlo se guarda la fecha real de entrega.
+                Al confirmar se guarda la fecha real de entrega y el usuario que
+                entregó. Esta acción no se puede deshacer.
               </p>
             </>
           )}
