@@ -42,8 +42,8 @@ describe("LoginPage (DERCAS §4, SEG: mensajes de la API)", () => {
     expect(screen.getByLabelText(/^Contraseña$/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/¿Cómo ingresas\?/i)).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /Continuar con Google/i }),
-    ).toBeDisabled();
+      screen.queryByRole("button", { name: /Continuar con Google/i }),
+    ).toBeNull();
     expect(
       screen.getByRole("button", { name: /Entrar a mi espacio/i }),
     ).toBeEnabled();

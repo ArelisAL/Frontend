@@ -275,24 +275,7 @@ export default function LoginPage({
               />
             </div>
           </>
-        ) : (
-          <>
-            <div className="auth-divider">
-              <span>o continúa con</span>
-            </div>
-            <button
-              type="button"
-              className="auth-google-placeholder"
-              disabled
-              aria-describedby="google-pendiente"
-            >
-              Continuar con Google
-            </button>
-            <p id="google-pendiente" className="auth-provider-note">
-              Se habilita al configurar el Client ID de Google del taller.
-            </p>
-          </>
-        )}
+        ) : null}
 
         <div className="auth-footnote">
           <span aria-hidden="true">♧</span> Acceso privado para el equipo
