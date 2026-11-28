@@ -729,7 +729,8 @@ export default function PedidosPage({ usuario }: { usuario: Usuario }) {
                         <dt>Prenda · categoría</dt>
                         <dd>
                           {seleccionado.prenda_nombre} ·{" "}
-                          {seleccionado.categoria_codigo}
+                          {seleccionado.categoria_nombre ??
+                            seleccionado.categoria_codigo}
                         </dd>
                       </div>
                       <div>

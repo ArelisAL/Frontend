@@ -9,6 +9,7 @@ export interface Pedido {
   prenda: number;
   prenda_nombre: string;
   categoria_codigo: string;
+  categoria_nombre?: string;
   descripcion: string;
   fecha_entrega: string;
   estado: string;
