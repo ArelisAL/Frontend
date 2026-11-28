@@ -679,6 +679,8 @@ export default function PedidosPage({ usuario }: { usuario: Usuario }) {
             {(usuario.rol === "administradora" ||
               usuario.rol === "costurera") &&
               seleccionado.estado !== "ENTREGADO" &&
+              // La entrega la registra recepción (decisión C2, 27/11/2026).
+              !(esCosturera && seleccionado.estado === "TERMINADO") &&
               !tomandoMedidas && (
                 <button
                   className="btn btn-primary"
