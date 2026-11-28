@@ -2,10 +2,17 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import EntregasPage from "./EntregasPage";
-import { listarPedidos, type Pedido } from "../api/pedidos";
+import {
+  cambiarEstadoPedido,
+  listarPedidos,
+  type Pedido,
+} from "../api/pedidos";
 import { listarPagos } from "../api/pagos";
 
-vi.mock("../api/pedidos", () => ({ listarPedidos: vi.fn() }));
+vi.mock("../api/pedidos", () => ({
+  listarPedidos: vi.fn(),
+  cambiarEstadoPedido: vi.fn(),
+}));
 vi.mock("../api/pagos", () => ({ listarPagos: vi.fn() }));
 
 const pedido: Pedido = {
@@ -28,7 +35,7 @@ const pedido: Pedido = {
   medidas_ultima_toma: null,
 };
 
-describe("EntregasPage (vista propuesta, solo interfaz)", () => {
+describe("EntregasPage", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("lista los pedidos terminados y avisa si queda saldo", async () => {
@@ -52,10 +59,54 @@ describe("EntregasPage (vista propuesta, solo interfaz)", () => {
     );
     expect(await screen.findByText("FC-2041")).toBeInTheDocument();
     expect(listarPedidos).toHaveBeenCalledWith("", 1, "TERMINADO");
-    fireEvent.click(screen.getByRole("button", { name: /Revisar/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Entregar$/ }));
     expect(
       await screen.findByText(/saldo pendiente de \$\s*35\.00/),
     ).toBeInTheDocument();
     expect(listarPagos).toHaveBeenCalledWith("FC-2041");
+    expect(
+      screen.getByRole("button", { name: "Confirmar entrega" }),
+    ).toBeDisabled();
+    expect(cambiarEstadoPedido).not.toHaveBeenCalled();
+  });
+
+  it("registra la entrega cuando no queda saldo", async () => {
+    vi.mocked(listarPedidos)
+      .mockResolvedValueOnce({
+        count: 1,
+        next: null,
+        previous: null,
+        results: [pedido],
+      })
+      .mockResolvedValueOnce({
+        count: 0,
+        next: null,
+        previous: null,
+        results: [],
+      });
+    vi.mocked(listarPagos).mockResolvedValueOnce({
+      count: 1,
+      next: null,
+      previous: null,
+      results: [],
+      saldo: "0.00",
+    });
+    vi.mocked(cambiarEstadoPedido).mockResolvedValueOnce({
+      id: 1,
+      estado_anterior: "TERMINADO",
+      estado_nuevo: "ENTREGADO",
+      fecha_hora: "2026-11-27T10:00:00Z",
+      usuario_nombre: "Recepción",
+    });
+    render(
+      <MemoryRouter>
+        <EntregasPage />
+      </MemoryRouter>,
+    );
+    fireEvent.click(await screen.findByRole("button", { name: /^Entregar$/ }));
+    await screen.findByText("El pedido no tiene saldo pendiente.");
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar entrega" }));
+    expect(await screen.findByText(/FC-2041 se entregó/)).toBeInTheDocument();
+    expect(cambiarEstadoPedido).toHaveBeenCalledWith("FC-2041");
   });
 });
