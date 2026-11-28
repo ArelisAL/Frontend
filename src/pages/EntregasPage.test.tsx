@@ -30,6 +30,7 @@ const pedido: Pedido = {
   costurera_nombre: null,
   nota_interna: "",
   total: "85.00",
+  total_cerrado_en: "2026-11-25T10:00:00Z",
   creado_en: "2026-11-20T10:00:00Z",
   entregado_en: null,
   medidas_ultima_toma: null,

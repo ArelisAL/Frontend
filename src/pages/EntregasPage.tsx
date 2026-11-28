@@ -283,7 +283,12 @@ export default function EntregasPage() {
                   type="button"
                   className="btn btn-outline-primary"
                   onClick={() => void confirmarEntrega()}
-                  disabled={entregando || saldo === null || Number(saldo) > 0}
+                  disabled={
+                    entregando ||
+                    !seleccionado.total_cerrado_en ||
+                    saldo === null ||
+                    Number(saldo) > 0
+                  }
                 >
                   {entregando ? "Confirmando…" : "Confirmar entrega"}
                 </button>
